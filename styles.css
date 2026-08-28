@@ -196,6 +196,23 @@ button.ghost:hover{ opacity:1; border-color:var(--ink); }
 .majority-line{ text-align:center; font-size:14px; margin-top:6px; color:var(--ink); opacity:.75; }
 .total-line{ text-align:center; font-size:12px; margin-top:2px; color:var(--ink); opacity:.5; }
 
+/* Admin tally bars showing full option text instead of a bare letter */
+.bar-row-text{ margin-bottom:16px; }
+.bar-row-label{
+  font-size:14px;
+  font-weight:600;
+  color:var(--ink);
+  margin-bottom:6px;
+  line-height:1.4;
+}
+.bar-row-label.is-correct{ color:var(--green); }
+.bar-row-track-line{
+  display:grid;
+  grid-template-columns: 1fr 70px;
+  align-items:center;
+  gap:12px;
+}
+
 .reveal-box{ text-align:center; padding:6px 0 4px; }
 .reveal-check{ font-size:34px; margin-bottom:4px; }
 .reveal-law{
