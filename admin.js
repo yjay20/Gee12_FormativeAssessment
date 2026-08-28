@@ -287,6 +287,9 @@ async function renderLeaderboard(){
 }
 
 function resetSession(){
+  const confirmed = window.confirm("Reset the entire session? This clears all votes and the scoreboard, and cannot be undone.");
+  if (!confirmed) return;
+
   stopCountdown();
   const votes = {};
   questions.forEach((q, i) => {
