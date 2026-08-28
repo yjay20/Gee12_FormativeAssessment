@@ -112,7 +112,7 @@ function renderBars(){
     </div>
     <div class="situation-text" style="font-size:15px; margin-bottom:18px;">${q.situation}</div>
     <div id="barsWrap">
-      ${q.options.map(o => renderBarRow(o.letter, total)).join('')}
+      ${q.options.map(o => renderBarRow(o, total)).join('')}
     </div>
     <div class="majority-line">${majorityText(total, q)}</div>
     <div class="total-line">${total} response${total === 1 ? "" : "s"} so far</div>
@@ -133,28 +133,34 @@ function renderBars(){
   startCountdown();
 }
 
-function renderBarRow(letter, total){
-  const count = currentVotes[letter] || 0;
+// `option` is the full { letter, text } object — voting/correctness still
+// keys off the original `letter`, but what's shown on the bar itself is
+// the option's actual text, not a bare A/B/C/D (students see a shuffled,
+// relabeled A-D on their own screens, so the letter alone isn't useful here).
+function renderBarRow(option, total){
+  const count = currentVotes[option.letter] || 0;
   const pct = total > 0 ? Math.round((count / total) * 100) : 0;
   const q = questions[currentIndex];
-  const isCorrect = letter === q.correctLetter;
+  const isCorrect = option.letter === q.correctLetter;
   return `
-    <div class="bar-row">
-      <div class="letter">${letter}</div>
-      <div class="bar-track"><div class="bar-fill ${isCorrect && revealed ? 'is-correct' : ''}" style="width:${pct}%"></div></div>
-      <div class="bar-pct">${pct}% (${count})</div>
+    <div class="bar-row-text">
+      <div class="bar-row-label ${isCorrect && revealed ? 'is-correct' : ''}">${option.text}</div>
+      <div class="bar-row-track-line">
+        <div class="bar-track"><div class="bar-fill ${isCorrect && revealed ? 'is-correct' : ''}" style="width:${pct}%"></div></div>
+        <div class="bar-pct">${pct}% (${count})</div>
+      </div>
     </div>
   `;
 }
 
 function majorityText(total, q){
   if (total === 0) return "Waiting for the class to respond…";
-  let top = q.options[0].letter, max = -1;
+  let top = q.options[0], max = -1;
   q.options.forEach(o => {
-    if ((currentVotes[o.letter] || 0) > max) { max = currentVotes[o.letter] || 0; top = o.letter; }
+    if ((currentVotes[o.letter] || 0) > max) { max = currentVotes[o.letter] || 0; top = o; }
   });
-  const pct = Math.round(((currentVotes[top] || 0) / total) * 100);
-  return `${pct}% chose ${top}`;
+  const pct = Math.round(((currentVotes[top.letter] || 0) / total) * 100);
+  return `${pct}% chose "${top.text}"`;
 }
 
 function renderReveal(){
@@ -169,13 +175,13 @@ function renderReveal(){
   card.innerHTML = `
     <div class="tally-title">Class Response — Question ${currentIndex + 1} of ${questions.length}</div>
     <div id="barsWrap">
-      ${q.options.map(o => renderBarRow(o.letter, total)).join('')}
+      ${q.options.map(o => renderBarRow(o, total)).join('')}
     </div>
     <div class="majority-line">${majorityText(total, q)}</div>
     <div class="divider"></div>
     <div class="reveal-box">
       <div class="reveal-check">✅</div>
-      <div class="reveal-law">Correct Answer: ${q.correctLetter} — ${q.correctLabel}</div>
+      <div class="reveal-law">Correct Answer: ${q.correctLabel}</div>
       <div class="reveal-explain">${q.explain}</div>
       <div class="takeaway"><b>Key takeaway:</b> ${q.takeaway}</div>
     </div>
