@@ -60,6 +60,18 @@ function seededRandom(seed){
   };
 }
 
+// Deterministically picks one wording per option for this student. Uses a
+// seed independent of the shuffle order (keyed by option letter, not
+// position) so which wording a student sees doesn't correlate with where
+// the option lands on screen. If an option has no `variants`, falls back
+// to its canonical `text` unchanged.
+function pickVariantText(q, index, option){
+  if (!option.variants || option.variants.length === 0) return option.text;
+  const rand = seededRandom(hashStr(deviceId + ':' + index + ':text:' + option.letter));
+  const i = Math.floor(rand() * option.variants.length);
+  return option.variants[i];
+}
+
 function getScrambledOptions(q, index){
   const rand = seededRandom(hashStr(deviceId + ':' + index));
   const arr = [...q.options];
@@ -69,6 +81,7 @@ function getScrambledOptions(q, index){
   }
   return arr.map((o, i) => ({
     ...o,
+    text: pickVariantText(q, index, o), // student-facing wording (may differ per device)
     displayLetter: String.fromCharCode(65 + i) // A, B, C, D in the new order
   }));
 }
@@ -205,7 +218,7 @@ function renderCurrentState(){
   if (!started) {
     stateTag.textContent = "Waiting";
     card.innerHTML = `
-      <div class="waiting-note">You're checked in, ${studentName}. Waiting for the presenter to start</div>
+      <div class="waiting-note">You're checked in, ${studentName}. Waiting for the presenter to start the assessment…</div>
     `;
     return;
   }
