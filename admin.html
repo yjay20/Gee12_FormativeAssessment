@@ -8,24 +8,50 @@
 </head>
 <body>
 
-<div class="stage">
+<div class="stage" id="loginStage">
+  <div class="seal-row">
+    <span>Pause & Decide</span>
+    <span class="tag">Presenter Login</span>
+  </div>
+  <div class="card">
+    <div class="kicker">Pause & Decide</div>
+    <h1 class="headline"><span class="glyph">🔒</span>Presenter Access</h1>
+    <div class="divider"></div>
+    <label class="field-label" for="adminPasswordInput">Password</label>
+    <input type="password" id="adminPasswordInput" class="text-input" placeholder="Enter presenter password" autocomplete="off" />
+    <div class="waiting-note" id="loginNote" style="padding:0 0 16px; text-align:left; opacity:.8;"></div>
+    <div class="actions">
+      <span></span>
+      <button class="primary" id="loginBtn">Enter</button>
+    </div>
+  </div>
+</div>
+
+<div class="stage" id="adminStage" style="display:none;">
   <div class="seal-row">
     <span id="lawLabel">RA 11313 · Safe Spaces Act</span>
     <span class="tag" id="stateTag">Presenter</span>
+  </div>
+
+  <div class="network-check-row">
+    <button class="ghost" id="networkCheckBtn">📶 Check class connection</button>
+    <span id="networkCheckStatus" class="network-check-status"></span>
   </div>
 
   <div class="card" id="card">
     <div class="waiting-note">Loading…</div>
   </div>
 
-  <div class="footer-note">Presenter screen — project this for the class</div>
+  <div class="footer-note">Legal Basis for the Study of Gender and Society</div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
 <script src="question-data.js"></script>
-<script src="admin.js"></script>
+<script src="admin-auth.js"></script>
+<!-- admin.js is injected by admin-auth.js only after a correct password,
+     so no session/vote/score data is fetched or rendered before login. -->
 
 </body>
 </html>

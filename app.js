@@ -2,9 +2,11 @@ const card = document.getElementById('card');
 const stateTag = document.getElementById('stateTag');
 
 const VOTE_KEY_PREFIX = "pauseAndDecide_voted_q";
+const SCORED_KEY_PREFIX = "pauseAndDecide_scored_q";
 const NAME_KEY = "pauseAndDecide_name_session1";
 const DEVICE_KEY = "pauseAndDecide_deviceId";
 const RESET_KEY = "pauseAndDecide_lastReset";
+const ANSWER_SECONDS = 30;
 
 function getDeviceId(){
   let id = localStorage.getItem(DEVICE_KEY);
@@ -16,14 +18,60 @@ function getDeviceId(){
 }
 const deviceId = getDeviceId();
 const DEVICE_DOC = db.collection("pauseAndDecideDevices").doc(deviceId);
+const STUDENT_DOC = db.collection("pauseAndDecideStudents").doc(deviceId);
 
 let studentName = localStorage.getItem(NAME_KEY) || "";
 let checkedIn = !!studentName;
-let cameraStream = null;
 
 let currentIndex = 0;
 let revealed = false;
 let sessionLoaded = false;
+let questionStartedAt = null;
+let timeUpInterval = null;
+
+// Network check state
+let lastNetworkCheck = null;
+let firstSnapshotSeen = false;
+
+let started = false; // add alongside the other `let` declarations near the top
+
+// ---------- Deterministic per-device option scrambling ----------
+// Each student sees a stable (but different) order for a given
+// question's options. The underlying `letter` on each option is its
+// ORIGINAL letter and is what voting/correctness checks use — it never
+// changes. `displayLetter` is a fresh A, B, C, D assigned in the new,
+// shuffled order, purely for what's shown on screen, so students always
+// see a clean A-D sequence regardless of how the options were shuffled.
+function hashStr(str){
+  let h = 0;
+  for (let i = 0; i < str.length; i++){
+    h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+  }
+  return h;
+}
+
+function seededRandom(seed){
+  let t = seed;
+  return function(){
+    t += 0x6D2B79F5;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function getScrambledOptions(q, index){
+  const rand = seededRandom(hashStr(deviceId + ':' + index));
+  const arr = [...q.options];
+  for (let i = arr.length - 1; i > 0; i--){
+    const j = Math.floor(rand() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr.map((o, i) => ({
+    ...o,
+    displayLetter: String.fromCharCode(65 + i) // A, B, C, D in the new order
+  }));
+}
 
 // Make sure the session doc exists.
 SESSION_DOC.get().then(doc => {
@@ -33,7 +81,13 @@ SESSION_DOC.get().then(doc => {
       votes[i] = {};
       q.options.forEach(o => votes[i][o.letter] = 0);
     });
-    SESSION_DOC.set({ currentIndex: 0, revealed: false, votes });
+    SESSION_DOC.set({
+      currentIndex: 0,
+      revealed: false,
+      finished: false,
+      votes,
+      questionStartedAt: Date.now().toString()
+    });
   }
 });
 
@@ -50,11 +104,23 @@ async function boot(){
       console.error("Device lookup failed:", err);
     }
   }
-  if (checkedIn) renderCurrentState();
-  else renderCheckIn();
+  if (checkedIn) {
+    ensureStudentRecord();
+    renderCurrentState();
+  } else {
+    renderCheckIn();
+  }
 }
 
-// ---------- STEP 1: Name + camera check-in ----------
+// Make sure a scoreboard entry exists for this student.
+function ensureStudentRecord(){
+  STUDENT_DOC.set({
+    name: studentName,
+    updatedAt: Date.now()
+  }, { merge: true }).catch(err => console.error("Could not create student record:", err));
+}
+
+// ---------- STEP 1: Name check-in ----------
 
 function renderCheckIn(){
   document.getElementById('lawLabel').textContent = "Pause & Decide";
@@ -65,127 +131,36 @@ function renderCheckIn(){
     <div class="divider"></div>
     <div class="situation-label">Before we start</div>
     <div class="situation-text" style="font-size:16px;">
-      Type your real name, then confirm with your camera so we know it's really you.
-      This name is locked to this device for the whole session.
+      Type your real name to join the session. This name is locked to this device for the whole session.
     </div>
 
     <label class="field-label" for="nameInput">Your full name</label>
     <input type="text" id="nameInput" class="text-input" placeholder="e.g. Ana Dela Cruz" autocomplete="off" />
 
-    <div class="camera-box" id="cameraBox">
-      <video id="cameraVideo" autoplay playsinline></video>
-      <canvas id="cameraCanvas" style="display:none;"></canvas>
-      <div class="camera-placeholder" id="cameraPlaceholder">Camera preview will appear here</div>
-    </div>
-
-    <div class="waiting-note" id="checkInNote">Enter your name, then tap "Confirm with Camera."</div>
+    <div class="waiting-note" id="checkInNote">Enter your name, then tap "Join Session."</div>
 
     <div class="actions">
       <span></span>
-      <button class="primary" id="confirmBtn" disabled>Confirm with Camera</button>
+      <button class="primary" id="confirmBtn" disabled>Join Session</button>
     </div>
   `;
 
   const nameInput = document.getElementById('nameInput');
   const confirmBtn = document.getElementById('confirmBtn');
-  const note = document.getElementById('checkInNote');
 
   nameInput.addEventListener('input', () => {
     confirmBtn.disabled = nameInput.value.trim().length < 2;
   });
 
-  confirmBtn.addEventListener('click', async () => {
+  nameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !confirmBtn.disabled) confirmBtn.click();
+  });
+
+  confirmBtn.addEventListener('click', () => {
     const name = nameInput.value.trim();
     if (name.length < 2) return;
-
-    confirmBtn.disabled = true;
-    confirmBtn.textContent = "Opening camera…";
-    note.textContent = "Look at the camera for a moment…";
-
-    try {
-      await startCameraConfirmation(name);
-    } catch (err) {
-      console.error("Camera error:", err);
-      if (err && err.name === "NotFoundError") {
-        note.textContent = "No camera found on this device.";
-        showUploadFallback(name);
-      } else {
-        note.textContent = "Camera unavailable — checking you in with your name only.";
-        finishCheckIn(name);
-      }
-    }
-  });
-}
-
-// Fallback for devices with no camera at all: let the student "upload" a
-// photo instead. Same rule as the camera path — the file is only read
-// into memory to flash a confirmation, then discarded. It is never
-// uploaded to Firestore, never saved to disk, never persisted anywhere.
-function showUploadFallback(name){
-  const box = document.getElementById('cameraBox');
-  const placeholder = document.getElementById('cameraPlaceholder');
-  const note = document.getElementById('checkInNote');
-
-  placeholder.style.display = "block";
-  placeholder.innerHTML = `
-    <label class="upload-label" for="photoUploadInput">📷 Tap to upload a quick photo</label>
-    <input type="file" id="photoUploadInput" accept="image/*" capture="user" style="display:none;" />
-  `;
-  note.textContent = "No camera detected — you can upload a photo instead.";
-
-  document.getElementById('photoUploadInput').addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    note.textContent = "Confirming…";
-    const reader = new FileReader();
-    reader.onload = () => {
-      // Image data lives only in this local variable for a moment, then
-      // is dropped — never written to Firestore, localStorage, or disk.
-      let imageData = reader.result;
-      setTimeout(() => {
-        imageData = null; // discard
-        placeholder.innerHTML = "✓ Photo confirmed (not saved)";
-        finishCheckIn(name);
-      }, 800);
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-async function startCameraConfirmation(name){
-  const video = document.getElementById('cameraVideo');
-  const placeholder = document.getElementById('cameraPlaceholder');
-
-  cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
-  video.srcObject = cameraStream;
-  placeholder.style.display = "none";
-  video.style.display = "block";
-
-  // A frame is drawn to an off-screen canvas only long enough to flash a
-  // confirmation, then cleared. It is never uploaded, saved, or sent to Firestore.
-  setTimeout(() => {
-    const canvas = document.getElementById('cameraCanvas');
-    canvas.width = video.videoWidth || 320;
-    canvas.height = video.videoHeight || 240;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    stopCamera();
-    video.style.display = "none";
-    placeholder.style.display = "block";
-    placeholder.textContent = "✓ Photo confirmed (not saved)";
-
     finishCheckIn(name);
-  }, 1800);
-}
-
-function stopCamera(){
-  if (cameraStream) {
-    cameraStream.getTracks().forEach(t => t.stop());
-    cameraStream = null;
-  }
+  });
 }
 
 function finishCheckIn(name){
@@ -196,54 +171,123 @@ function finishCheckIn(name){
   DEVICE_DOC.set({ name: name, lockedAt: Date.now() }, { merge: true })
     .catch(err => console.error("Could not lock name:", err));
 
+  ensureStudentRecord();
   renderCurrentState();
 }
 
 // ---------- STEP 2: Voting (per current question) ----------
 
 function voteKey(index){ return VOTE_KEY_PREFIX + index; }
+function scoredKey(index){ return SCORED_KEY_PREFIX + index; }
+
+function getRemainingSeconds(){
+  if (!questionStartedAt) return ANSWER_SECONDS;
+  const elapsed = (Date.now() - Number(questionStartedAt)) / 1000;
+  return Math.max(0, Math.ceil(ANSWER_SECONDS - elapsed));
+}
+
+function stopTimeUpWatch(){
+  if (timeUpInterval) {
+    clearInterval(timeUpInterval);
+    timeUpInterval = null;
+  }
+}
 
 function renderCurrentState(){
+  stopTimeUpWatch();
+
   if (!sessionLoaded) {
     stateTag.textContent = "Loading";
     card.innerHTML = `<div class="waiting-note">Waiting for the presenter to start…</div>`;
     return;
   }
+
+  if (!started) {
+    stateTag.textContent = "Waiting";
+    card.innerHTML = `
+      <div class="waiting-note">You're checked in, ${studentName}. Waiting for the presenter to start the assessment…</div>
+    `;
+    return;
+  }
+
+  if (finishedSession) {
+    stateTag.textContent = "Session Complete";
+    card.innerHTML = `
+      <div class="reveal-box">
+        <div class="reveal-check">🎉</div>
+        <div class="reveal-law">Session Complete</div>
+        <div class="reveal-explain">Thanks for participating, ${studentName}! Your presenter will reveal the class scoreboard shortly.</div>
+      </div>
+    `;
+    return;
+  }
+
   const q = questions[currentIndex];
   document.getElementById('lawLabel').textContent = q.law;
 
   if (revealed) {
+    scoreCurrentQuestionIfNeeded(q);
     renderReveal(q);
     return;
   }
 
   const hasVoted = !!localStorage.getItem(voteKey(currentIndex));
-  stateTag.textContent = hasVoted ? "Submitted" : `Question ${currentIndex + 1} of ${questions.length}`;
+  const remaining = getRemainingSeconds();
+  const timeUp = remaining <= 0;
+  const locked = hasVoted || timeUp;
+  const displayOptions = getScrambledOptions(q, currentIndex);
+
+  stateTag.textContent = hasVoted
+    ? "Submitted"
+    : timeUp
+      ? "Time's up"
+      : `Question ${currentIndex + 1} of ${questions.length}`;
 
   card.innerHTML = `
     <div class="kicker">${q.eyebrow} · ${studentName}</div>
     <h1 class="headline"><span class="glyph">⚖️</span>Pause &amp; Decide</h1>
     <div class="divider"></div>
+    ${!hasVoted ? `
+      <div class="timer-row ${timeUp ? 'time-up' : ''}" id="timerRow">
+        ⏱ <span id="timerVal">${remaining}</span>s to answer
+      </div>
+    ` : ''}
     <div class="situation-label">Situation</div>
     <div class="situation-text">${q.situation}</div>
     <div class="question-text">${q.prompt}</div>
     <div class="options" id="optionsWrap">
-      ${q.options.map(o => `
-        <button class="option" data-letter="${o.letter}" ${hasVoted ? "disabled" : ""}>
-          <span class="letter">${o.letter}.</span><span>${o.text}</span>
+      ${displayOptions.map(o => `
+        <button class="option" data-letter="${o.letter}" ${locked ? "disabled" : ""}>
+          <span class="letter">${o.displayLetter}.</span><span>${o.text}</span>
         </button>
       `).join('')}
     </div>
     ${hasVoted
       ? `<div class="waiting-note">Answer submitted. Waiting for the presenter…</div>`
-      : `<div class="waiting-note">Choose an option to submit your answer.</div>`}
+      : timeUp
+        ? `<div class="waiting-note">Time's up — you didn't submit an answer in time.</div>`
+        : `<div class="waiting-note">Choose an option to submit your answer.</div>`}
   `;
 
-  if (!hasVoted) {
+  if (!hasVoted && !timeUp) {
     document.querySelectorAll('.option').forEach(btn => {
       btn.addEventListener('click', () => submitVote(btn.dataset.letter));
     });
-  } else {
+
+    // Tick the on-screen timer and lock the question automatically at 0.
+    timeUpInterval = setInterval(() => {
+      const r = getRemainingSeconds();
+      const timerVal = document.getElementById('timerVal');
+      const timerRow = document.getElementById('timerRow');
+      if (timerVal) timerVal.textContent = r;
+      if (timerRow && r <= 0) timerRow.classList.add('time-up');
+
+      if (r <= 0) {
+        stopTimeUpWatch();
+        renderCurrentState(); // re-render locked/time's-up state
+      }
+    }, 500);
+  } else if (hasVoted) {
     const selected = localStorage.getItem(voteKey(currentIndex));
     const el = document.querySelector(`.option[data-letter="${selected}"]`);
     if (el) el.classList.add('selected');
@@ -260,12 +304,56 @@ function submitVote(letter){
   renderCurrentState();
 }
 
+// Award a point (once) if this student answered the current question
+// correctly. Guarded by a localStorage flag so re-renders / rejoining
+// the page never double-count the same question.
+function scoreCurrentQuestionIfNeeded(q){
+  if (localStorage.getItem(scoredKey(currentIndex))) return;
+
+  const selected = localStorage.getItem(voteKey(currentIndex));
+  localStorage.setItem(scoredKey(currentIndex), "1");
+
+  const isCorrect = selected && selected === q.correctLetter;
+
+  STUDENT_DOC.set({
+    name: studentName,
+    updatedAt: Date.now(),
+    ...(isCorrect ? { score: firebase.firestore.FieldValue.increment(1) } : {}),
+    [`answers.${currentIndex}`]: selected || null
+  }, { merge: true }).catch(err => console.error("Could not save score:", err));
+}
+
 function renderReveal(q){
+  stopTimeUpWatch();
   stateTag.textContent = "Answer";
+  const hasVoted = !!localStorage.getItem(voteKey(currentIndex));
+  const selected = localStorage.getItem(voteKey(currentIndex));
+  const gotItRight = selected && selected === q.correctLetter;
+  const displayOptions = getScrambledOptions(q, currentIndex);
+  const correctDisplayLetter = displayOptions.find(o => o.letter === q.correctLetter)?.displayLetter || q.correctLetter;
+
   card.innerHTML = `
+    <div class="options" id="optionsWrap">
+      ${displayOptions.map(o => {
+        const isCorrect = o.letter === q.correctLetter;
+        const isYourPick = o.letter === selected;
+        const cls = [
+          "option", "revealed",
+          isCorrect ? "is-correct" : "",
+          (isYourPick && !isCorrect) ? "is-wrong" : ""
+        ].filter(Boolean).join(" ");
+        return `
+          <button class="${cls}" disabled>
+            <span class="letter">${o.displayLetter}.</span><span>${o.text}</span>
+            ${isCorrect ? '<span class="tag-inline">✅ Correct</span>' : ''}
+            ${(isYourPick && !isCorrect) ? '<span class="tag-inline">Your answer</span>' : ''}
+          </button>
+        `;
+      }).join('')}
+    </div>
     <div class="reveal-box">
-      <div class="reveal-check">✅</div>
-      <div class="reveal-law">${q.correctLabel}</div>
+      <div class="reveal-check">${hasVoted ? (gotItRight ? "✅" : "❌") : "⏱"}</div>
+      <div class="reveal-law">Correct Answer: ${correctDisplayLetter} — ${q.correctLabel}</div>
       <div class="reveal-explain">${q.explain}</div>
       <div class="takeaway"><b>Key takeaway:</b> ${q.takeaway}</div>
       <div class="waiting-note" style="margin-top:16px;">Waiting for the presenter to move to the next question…</div>
@@ -273,7 +361,34 @@ function renderReveal(q){
   `;
 }
 
+// ---------- Network check (toast) ----------
+
+function showToast(message, tone = "ok"){
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.className = `toast show ${tone}`;
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => { toast.className = "toast"; }, 3500);
+}
+
+function handleNetworkCheck(sentAtStr){
+  const sentAt = Number(sentAtStr);
+  const latency = Date.now() - sentAt;
+
+  // Rough, informal read — client clocks aren't perfectly synced,
+  // this is just meant to catch obviously bad connections.
+  if (latency < 800) {
+    showToast(`Connection looks good (${latency}ms)`, "ok");
+  } else if (latency < 2500) {
+    showToast(`Connection a bit slow (${latency}ms)`, "warn");
+  } else {
+    showToast(`Weak connection detected (${latency}ms) — try reconnecting to wifi`, "bad");
+  }
+}
+
 // ---------- Boot + live sync ----------
+
+let finishedSession = false;
 
 boot();
 
@@ -281,15 +396,31 @@ SESSION_DOC.onSnapshot(doc => {
   if (!doc.exists) return;
   const data = doc.data();
   sessionLoaded = true;
+  started = !!data.started;
+
+  // --- network check ---
+  if (!firstSnapshotSeen) {
+    firstSnapshotSeen = true;
+    lastNetworkCheck = data.networkCheckAt || null; // baseline, don't toast on load
+  } else if (data.networkCheckAt && data.networkCheckAt !== lastNetworkCheck) {
+    lastNetworkCheck = data.networkCheckAt;
+    handleNetworkCheck(data.networkCheckAt);
+  }
 
   const lastReset = localStorage.getItem(RESET_KEY);
   if (data.resetAt && data.resetAt !== lastReset) {
     localStorage.setItem(RESET_KEY, data.resetAt);
-    questions.forEach((_, i) => localStorage.removeItem(voteKey(i)));
+    questions.forEach((_, i) => {
+      localStorage.removeItem(voteKey(i));
+      localStorage.removeItem(scoredKey(i));
+    });
+    finishedSession = false;
   }
 
   currentIndex = data.currentIndex || 0;
   revealed = !!data.revealed;
+  finishedSession = !!data.finished;
+  questionStartedAt = data.questionStartedAt || null;
 
   if (checkedIn) renderCurrentState();
 });

@@ -309,3 +309,76 @@ button.ghost:hover{ opacity:1; border-color:var(--ink); }
   .card{ padding:26px 20px; }
   h1.headline{ font-size:26px; }
 }
+
+.network-check-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:14px;
+}
+.network-check-status{
+  font-size:12px;
+  opacity:.6;
+}
+
+.toast{
+  position:fixed;
+  bottom:24px;
+  left:50%;
+  transform:translateX(-50%) translateY(20px);
+  background:var(--ink);
+  color:#fff;
+  padding:12px 20px;
+  border-radius:4px;
+  font-size:14px;
+  font-weight:600;
+  opacity:0;
+  pointer-events:none;
+  transition: opacity .25s ease, transform .25s ease;
+  z-index:1000;
+  max-width:90vw;
+  text-align:center;
+}
+.toast.show{
+  opacity:1;
+  transform:translateX(-50%) translateY(0);
+}
+.toast.ok{ background:var(--green); }
+.toast.warn{ background:var(--gold); color:var(--ink); }
+.toast.bad{ background:var(--maroon-dark); }
+
+/* Admin countdown badge */
+.countdown-badge{
+  display:flex;
+  align-items:baseline;
+  justify-content:center;
+  gap:6px;
+  margin-bottom:18px;
+  font-family:'Fraunces', serif;
+  font-weight:700;
+  font-size:28px;
+  color:var(--maroon);
+}
+.countdown-badge .countdown-label{
+  font-family:'Space Grotesk', sans-serif;
+  font-weight:600;
+  font-size:12px;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  opacity:.6;
+}
+.countdown-badge.time-up{ color:var(--maroon-dark); }
+
+/* Student timer row */
+.timer-row{
+  text-align:center;
+  font-size:14px;
+  font-weight:600;
+  color:var(--maroon);
+  margin-bottom:18px;
+}
+.timer-row.time-up{ color:var(--maroon-dark); }
+
+.option.revealed.is-correct { border-color: #16a34a; background: rgba(22,163,74,0.08); }
+.option.revealed.is-wrong { border-color: #dc2626; background: rgba(220,38,38,0.08); }
+.tag-inline { margin-left: auto; font-size: 12px; font-weight: 700; opacity: 0.85; }
