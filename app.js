@@ -205,7 +205,7 @@ function renderCurrentState(){
   if (!started) {
     stateTag.textContent = "Waiting";
     card.innerHTML = `
-      <div class="waiting-note">You're checked in, ${studentName}. Waiting for the presenter to start the assessment…</div>
+      <div class="waiting-note">You're checked in, ${studentName}. Waiting for the presenter to start</div>
     `;
     return;
   }
