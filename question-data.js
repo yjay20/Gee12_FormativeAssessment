@@ -50,7 +50,55 @@ const questions = [
     takeaway: "Article II, Section 14 of the 1987 Constitution is the foundational provision for gender equality that later laws like the Magna Carta of Women build on."
   },
   {
-    eyebrow: "Quiz · 4 of 15",
+    eyebrow: "Quiz · 4 of 18",
+    law: "CEDAW",
+    situation: "",
+    prompt: "What does CEDAW stand for?",
+    options: [
+      { letter: "A", text: "The Convention on the Equality of Development All Women" },
+      { letter: "B", text: "The Convention on the Elimination of All Discrimination against Women" },
+      { letter: "C", text: "The Convention on the Elimination of Discrimination against Women" },
+      { letter: "D", text: "The Convention on the Economic Development and Assistance for Women" }
+    ],
+    correctLetter: "B",
+    correctLabel: "The Convention on the Elimination of All Discrimination against Women",
+    explain: "CEDAW's full name includes the word \"All\" — it is the Convention on the Elimination of All Forms of Discrimination against Women, covering discrimination broadly, not just one type.",
+    takeaway: "Watch for the word \"All\" in CEDAW's full name — it signals the convention's broad, comprehensive scope against discrimination."
+  },
+  {
+    eyebrow: "Quiz · 5 of 18",
+    law: "CEDAW",
+    situation: "",
+    prompt: "When was CEDAW adopted by the UN?",
+    options: [
+      { letter: "A", text: "1945" },
+      { letter: "B", text: "1967" },
+      { letter: "C", text: "1979" },
+      { letter: "D", text: "1981" }
+    ],
+    correctLetter: "C",
+    correctLabel: "1979",
+    explain: "CEDAW was adopted by the UN General Assembly in 1979; it later entered into force in 1981, which is a related but different date.",
+    takeaway: "CEDAW was adopted in 1979 — don't confuse this with 1981, the year it entered into force."
+  },
+  {
+    eyebrow: "Quiz · 6 of 18",
+    law: "CEDAW",
+    situation: "",
+    prompt: "Which organization adopted CEDAW?",
+    options: [
+      { letter: "A", text: "World Bank" },
+      { letter: "B", text: "ASEAN" },
+      { letter: "C", text: "United Nations" },
+      { letter: "D", text: "PWD" }
+    ],
+    correctLetter: "C",
+    correctLabel: "United Nations",
+    explain: "CEDAW is a United Nations human rights treaty, adopted by the UN General Assembly — not a regional body like ASEAN or a financial institution like the World Bank.",
+    takeaway: "CEDAW is a UN treaty, which is why countries that ratify it are bound by international obligations, not just regional agreements."
+  },
+  {
+    eyebrow: "Quiz · 7 of 18",
     law: "Beijing Platform for Action (BPfA)",
     situation: "",
     prompt: "What is the main purpose of the Beijing Platform for Action (BPfA)?",
@@ -66,7 +114,7 @@ const questions = [
     takeaway: "The Beijing Platform for Action is a global policy framework, not a single law — it guides national action on gender equality."
   },
   {
-    eyebrow: "Quiz · 5 of 15",
+    eyebrow: "Quiz · 8 of 18",
     law: "Beijing Platform for Action — Critical Areas of Concern",
     situation: "A government creates programs that increase women's access to employment, business opportunities, credit, and financial resources.",
     prompt: "Which Critical Area of Concern does this address?",
@@ -82,7 +130,7 @@ const questions = [
     takeaway: "\"Women and Poverty\" as a Critical Area of Concern is about economic access — jobs, credit, business opportunities — not just income level."
   },
   {
-    eyebrow: "Quiz · 6 of 15",
+    eyebrow: "Quiz · 9 of 18",
     law: "Gender mainstreaming",
     situation: "A government considers gender equality when creating laws, policies, programs, budgets, and development plans.",
     prompt: "What concept does this demonstrate?",
@@ -98,7 +146,7 @@ const questions = [
     takeaway: "Gender mainstreaming is a strategy, not a single program: it means gender is considered in the design of every policy, not addressed separately afterward."
   },
   {
-    eyebrow: "Quiz · 7 of 15",
+    eyebrow: "Quiz · 10 of 18",
     law: "RA 11313 · Safe Spaces Act",
     situation: "",
     prompt: "Which statement best describes the primary objective of Republic Act No. 11313, or the Safe Spaces Act?",
@@ -114,7 +162,7 @@ const questions = [
     takeaway: "The Safe Spaces Act's core goal is prevention and redress of gender-based sexual harassment across multiple settings, not employment or education standards generally."
   },
   {
-    eyebrow: "Quiz · 8 of 15",
+    eyebrow: "Quiz · 11 of 18",
     law: "RA 11313 · Safe Spaces Act",
     situation: "",
     prompt: "Why are institutional mechanisms important in implementing RA 11313 in educational institutions?",
@@ -130,7 +178,7 @@ const questions = [
     takeaway: "Institutional mechanisms exist to formalize the school's response to harassment — clear procedures, not diffuse or optional responsibility."
   },
   {
-    eyebrow: "Quiz · 9 of 15",
+    eyebrow: "Quiz · 12 of 18",
     law: "RA 11313 · Safe Spaces Act",
     situation: "",
     prompt: "Which statement correctly describes gender-based online sexual harassment under RA 11313?",
@@ -146,7 +194,7 @@ const questions = [
     takeaway: "Online harassment under RA 11313 doesn't require physical presence or a government platform — any digital channel counts."
   },
   {
-    eyebrow: "Quiz · 10 of 15",
+    eyebrow: "Quiz · 13 of 18",
     law: "RA 9262 · Anti-VAWC Act",
     situation: "",
     prompt: "What is the primary purpose of Republic Act No. 9262?",
@@ -162,7 +210,7 @@ const questions = [
     takeaway: "RA 9262's protection extends to both the woman and her children, not just the woman alone."
   },
   {
-    eyebrow: "Quiz · 11 of 15",
+    eyebrow: "Quiz · 14 of 18",
     law: "RA 9262 · Anti-VAWC Act",
     situation: "",
     prompt: "Which of the following is NOT one of the forms of violence recognized under RA 9262?",
@@ -178,7 +226,7 @@ const questions = [
     takeaway: "RA 9262 covers four forms of abuse: physical, sexual, psychological, and economic — memorize these four, not a broader list."
   },
   {
-    eyebrow: "Quiz · 12 of 15",
+    eyebrow: "Quiz · 15 of 18",
     law: "RA 9262 · Anti-VAWC Act",
     situation: "",
     prompt: "Which of the following is a type of protection order under RA 9262?",
@@ -194,7 +242,7 @@ const questions = [
     takeaway: "The BPO is issued at the barangay level for immediate protection, distinct from the Temporary and Permanent Protection Orders issued by courts."
   },
   {
-    eyebrow: "Quiz · 13 of 15",
+    eyebrow: "Quiz · 16 of 18",
     law: "RA 10354 · Responsible Parenthood and RH Act",
     situation: "",
     prompt: "What is one main purpose of RA 10354 – Responsible Parenthood and Reproductive Health Act of 2012?",
@@ -210,7 +258,7 @@ const questions = [
     takeaway: "RA 10354 is about access to information and services — it does not mandate a number of children or restrict RH education."
   },
   {
-    eyebrow: "Quiz · 14 of 15",
+    eyebrow: "Quiz · 17 of 18",
     law: "RA 10354 · Responsible Parenthood and RH Act",
     situation: "",
     prompt: "Which of the following is included in the reproductive health services promoted under RA 10354?",
@@ -226,7 +274,7 @@ const questions = [
     takeaway: "RA 10354 expands RH services (including STI/HIV care) and includes men in reproductive health, rather than limiting either."
   },
   {
-    eyebrow: "Quiz · 15 of 15",
+    eyebrow: "Quiz · 18 of 18",
     law: "RA 10354 · Responsible Parenthood and RH Act",
     situation: "",
     prompt: "Why is RA 10354 relevant to the study of Gender and Society?",
